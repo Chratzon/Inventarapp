@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#171b1f">
+<title>Roadcase – Bandinventar</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">RC</span>
+    <span class="brand-name">Roadcase</span>
+  </div>
+  <div class="topbar-actions">
+    <button class="icon-btn" id="btn-search-toggle" title="Suchen" aria-label="Suchen">⌕</button>
+    <button class="icon-btn" id="btn-install" hidden title="App installieren">↓</button>
+  </div>
+</header>
+
+<div class="searchbar" id="searchbar" hidden>
+  <input type="search" id="search" placeholder="Name, Inventarnummer, Seriennummer …" autocomplete="off">
+</div>
+
+<main id="main">
+
+  <!-- ============ INVENTAR ============ -->
+  <section class="view" id="view-inventar">
+    <div class="stats" id="stats"></div>
+
+    <div class="filterbar" id="groupfilter"></div>
+
+    <div class="listhead">
+      <h2>Geräte</h2>
+      <select id="sort" class="mini-select" aria-label="Sortierung">
+        <option value="inv">Inventarnummer</option>
+        <option value="name">Name</option>
+        <option value="new">Zuletzt geändert</option>
+        <option value="status">Status</option>
+      </select>
+    </div>
+
+    <div id="itemlist" class="itemlist"></div>
+    <button class="fab" id="btn-new-item" aria-label="Gerät anlegen">+</button>
+  </section>
+
+  <!-- ============ GRUPPEN ============ -->
+  <section class="view" id="view-gruppen" hidden>
+    <h2 class="view-title">Produktgruppen</h2>
+    <p class="lede">Jede Gruppe hat ein Kürzel. Daraus entstehen die Inventarnummern, z.&nbsp;B. KAB-004.</p>
+    <div id="grouplist" class="grouplist"></div>
+    <button class="fab" id="btn-new-group" aria-label="Gruppe anlegen">+</button>
+  </section>
+
+  <!-- ============ VERLEIH ============ -->
+  <section class="view" id="view-verleih" hidden>
+    <h2 class="view-title">Verleih</h2>
+    <p class="lede">Ausgabe mit Zustandsfotos, Rückgabe mit Vorher-Nachher-Vergleich.</p>
+    <div id="loanlist" class="loanlist"></div>
+    <button class="fab" id="btn-new-loan" aria-label="Verleih anlegen">+</button>
+  </section>
+
+  <!-- ============ AUSGABE ============ -->
+  <section class="view" id="view-export" hidden>
+    <h2 class="view-title">Ausgabe</h2>
+    <p class="lede">Auswahl und Detailgrad festlegen, dann drucken, als PDF sichern oder Datei laden.</p>
+    <div id="exportui"></div>
+  </section>
+
+  <!-- ============ DATEN ============ -->
+  <section class="view" id="view-daten" hidden>
+    <h2 class="view-title">Daten</h2>
+    <div id="datenui"></div>
+  </section>
+
+</main>
+
+<nav class="tabbar" id="tabbar">
+  <button data-view="inventar" class="tab is-active"><span class="tab-ico">▤</span>Inventar</button>
+  <button data-view="gruppen" class="tab"><span class="tab-ico">◱</span>Gruppen</button>
+  <button data-view="verleih" class="tab"><span class="tab-ico">⇄</span>Verleih</button>
+  <button data-view="export" class="tab"><span class="tab-ico">⎙</span>Ausgabe</button>
+  <button data-view="daten" class="tab"><span class="tab-ico">⛁</span>Daten</button>
+</nav>
+
+<!-- Vollbild-Detailebene -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-bar">
+    <button class="icon-btn" id="sheet-close" aria-label="Schließen">←</button>
+    <span id="sheet-title"></span>
+    <span id="sheet-action"></span>
+  </div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<!-- Druck-/Vorschauebene -->
+<div class="preview" id="preview" hidden>
+  <div class="preview-bar no-print">
+    <button class="icon-btn" id="preview-close" aria-label="Schließen">←</button>
+    <span>Vorschau</span>
+    <span>
+      <button class="btn small" id="preview-download">Datei</button>
+      <button class="btn small primary" id="preview-print">Drucken</button>
+    </span>
+  </div>
+  <div id="print-area" class="print-area"></div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<input type="file" id="photo-input" accept="image/*" capture="environment" hidden multiple>
+<input type="file" id="restore-input" accept="application/json,.json" hidden>
+
+<script src="app.js"></script>
+</body>
+</html>
