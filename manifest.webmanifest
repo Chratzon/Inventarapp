@@ -1,0 +1,19 @@
+{
+  "name": "Roadcase – Bandinventar",
+  "short_name": "Roadcase",
+  "description": "Inventar, Zustandsdokumentation und Verleih für Bandequipment. Läuft offline, alle Daten bleiben auf dem Gerät.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#171b1f",
+  "theme_color": "#171b1f",
+  "lang": "de",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
