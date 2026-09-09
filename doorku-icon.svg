@@ -1,8 +1,0 @@
-<svg width="200" height="200" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img">
-  <title>DoorKu Icon</title>
-  <rect x="8" y="8" width="84" height="84" rx="20" fill="#0E6E5C"/>
-  <g transform="rotate(-7 34 50)">
-    <rect x="30" y="19" width="34" height="62" rx="5" fill="#FFFFFF"/>
-    <circle cx="58" cy="50" r="3.4" fill="#0E6E5C"/>
-  </g>
-</svg>
