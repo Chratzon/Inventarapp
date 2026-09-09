@@ -24,6 +24,9 @@
 }
 
 *{box-sizing:border-box}
+/* Muss vor allen Layoutregeln stehen: display:flex auf .sheet/.preview würde
+   das hidden-Attribut sonst überstimmen und die Ebenen dauerhaft anzeigen. */
+[hidden]{display:none !important}
 html,body{margin:0;padding:0}
 body{
   background:var(--bg);color:var(--ink);font-family:var(--font);
