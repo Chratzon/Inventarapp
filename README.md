@@ -22,28 +22,35 @@ Die Daten hängen an der Adresse. Immer dieselbe URL nutzen und die App vom Star
 
 Jedes Gerät bekommt automatisch drei Dinge, sichtbar in der Detailansicht unter „Etikett und Codes":
 
-- **QR-Code** mit dem Link `…/#/i/<Inventarnummer>`. Wird er gescannt, öffnet sich die App direkt
-  bei diesem Gerät — auch mit der normalen Kamera-App des Handys.
+- **QR-Code** mit dem Link `…/#/i/<Inventarnummer>`. Gescannt öffnet er die App direkt bei diesem
+  Gerät, auch über die normale Kamera-App des Handys.
 - **Barcode** in Code 128 mit der Inventarnummer, lesbar von jedem Handscanner.
 - **Druckdatei**: „Etikett drucken" erzeugt einen Bogen zum Ausdrucken, „Etikett als SVG" speichert
   eine verlustfreie Vektordatei für Etikettendrucker oder Druckerei.
 
-Unter Ausgabe → Etiketten lassen sich Bögen für viele Geräte auf einmal erzeugen: Größe
-40 × 25, 60 × 35 oder 90 × 50 mm, Stückzahl je Gerät und Inhalt (QR, Barcode, Bezeichnung) wählbar.
-Gedruckt wird maßstabsgetreu in Millimeter, die gestrichelten Rahmen sind die Schnittkanten.
-Wichtig: im Druckdialog die Skalierung auf 100 % stellen, nicht „an Seite anpassen".
+Unter Ausgabe → Etiketten entstehen Bögen für viele Geräte auf einmal: Größe 40 × 25, 60 × 35 oder
+90 × 50 mm, Stückzahl je Gerät und Inhalt wählbar. Gedruckt wird maßstabsgetreu in Millimeter,
+die gestrichelten Rahmen sind die Schnittkanten. Im Druckdialog die Skalierung auf 100 % stellen.
 
 ## Scannen
 
-Das Symbol ▣ oben in der Kopfzeile öffnet den Scanner. Unter Android liest Chrome QR- und
-Barcodes direkt in der App. iOS erlaubt das keinem Browser — dort die normale Kamera-App
-verwenden, die den QR-Code liest und die App am richtigen Gerät öffnet. Ersatzweise lässt sich
-die Inventarnummer im Scanfenster eintippen.
+Das Symbol ▣ in der Kopfzeile öffnet den Scanner. Unter Android liest Chrome QR- und Barcodes
+direkt in der App. iOS erlaubt das keinem Browser – dort die normale Kamera-App verwenden.
+Ersatzweise lässt sich die Inventarnummer im Scanfenster eintippen.
 
-## Nach Änderungen
+## Inventarnummern
 
-Bei jeder Änderung an `app.js`, `codes.js` oder `styles.css` die Cache-Version in `sw.js` hochzählen
-(`roadcase-v3` → `roadcase-v4`), sonst liefert der Service Worker die alte Fassung aus.
+Sie entstehen aus dem Kürzel der Produktgruppe und laufen je Gruppe fortlaufend weiter:
+`KAB-001`, `KAB-002`, `LIC-001`. Ohne eigenes Kürzel werden die ersten drei Buchstaben des
+Gruppennamens verwendet. Die vorgeschlagene Nummer lässt sich beim Anlegen überschreiben.
+
+## Wenn Änderungen nicht ankommen
+
+Die App liefert Programmdateien zuerst aus dem Netz und fällt nur offline auf den Cache zurück.
+Trotzdem gilt: bei jeder Änderung an `app.js`, `codes.js` oder `styles.css` die Cache-Version in
+`sw.js` hochzählen (`roadcase-v3` → `roadcase-v4`). Unter Daten zeigt die App ihren Stand an;
+steht dort ein alter Wert, läuft noch die vorherige Fassung. Dann die Seite einmal online öffnen,
+schließen und neu starten – oder das Symbol vom Startbildschirm löschen und neu hinzufügen.
 
 ## Dateien
 

@@ -1,6 +1,8 @@
 /* Roadcase – Bandinventar. Alle Daten bleiben im Browser (IndexedDB). */
 'use strict';
 
+const APP_VERSION = 'v3 (10.09.2026)';
+
 /* ---------------------------------------------------------------- Helfer */
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -292,6 +294,10 @@ function buildLabelSheet(items, opts) {
 
 /* Codeansicht im Gerätedetail */
 function codesSection(item) {
+  if (typeof QR === 'undefined' || typeof Code128 === 'undefined') {
+    return `<div class="notice"><b>codes.js fehlt</b>QR- und Barcode-Erzeugung ist nicht geladen.
+      Prüfe, ob die Datei <code>codes.js</code> im Repository liegt, und lade die Seite neu.</div>`;
+  }
   const link = itemLink(item);
   return `<div class="codes">
       <div class="codes-qr">${QR.svg(link, { level: 'M', quiet: 2 })}</div>
@@ -1242,6 +1248,8 @@ async function renderDaten() {
       ${fact('Historieneinträge', S.entries.length)}
       ${fact('Fotos', photos.length)}
       ${fact('Verleihvorgänge', S.loans.length)}
+      ${fact('App-Stand', APP_VERSION)}
+      ${fact('Codeerzeugung', typeof QR === 'undefined' ? 'nicht geladen' : 'bereit')}
     </dl>
     ${quota ? `<p class="lede">${quota}</p>` : ''}
     <div class="btnrow">
@@ -1379,7 +1387,17 @@ $('#btn-install').onclick = async () => {
   deferred.prompt(); await deferred.userChoice; deferred = null; $('#btn-install').hidden = true;
 };
 if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !navigator.standalone) $('#btn-install').hidden = false;
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
+if ('serviceWorker' in navigator) {
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => reg.update()).catch(() => { });
+  });
+}
 
 /* ---------------------------------------------------------------- Start */
 (async function init() {
