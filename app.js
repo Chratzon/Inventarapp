@@ -192,6 +192,193 @@ function nextInvNo(groupId) {
   return code + '-' + String(n).padStart(3, '0');
 }
 
+
+/* ---------------------------------------------------------------- Codes und Etiketten */
+const LABEL_SIZES = {
+  klein: { w: 40, h: 25, name: '40 × 25 mm' },
+  mittel: { w: 60, h: 35, name: '60 × 35 mm' },
+  gross: { w: 90, h: 50, name: '90 × 50 mm' }
+};
+
+/* Inhalt des QR-Codes: Link auf das Gerät, damit jede Kamera-App direkt die Seite öffnet.
+   Ohne Webserver (Datei geöffnet) bleibt nur die Inventarnummer. */
+function itemLink(item) {
+  const code = item.invNo || item.id;
+  if (location.protocol === 'http:' || location.protocol === 'https:') {
+    return location.origin + location.pathname + '#/i/' + encodeURIComponent(code);
+  }
+  return code;
+}
+
+function labelSVG(item, opts) {
+  opts = opts || {};
+  const size = LABEL_SIZES[opts.size || 'mittel'];
+  const w = size.w, h = size.h;
+  const showQR = opts.qr !== false, showBar = opts.bar !== false, showName = opts.name !== false;
+  const pad = Math.max(1.4, h * 0.07);
+  const inv = item.invNo || item.id;
+  const g = groupOf(item.groupId);
+
+  /* Barcode über die volle Breite: sonst werden die Striche auf kleinen Etiketten zu fein */
+  const barH = showBar ? h * 0.2 : 0;
+  const barY = h - pad - barH;
+  const upperH = (showBar ? barY - pad * 1.4 : h - 2 * pad);
+  const qrSide = showQR ? Math.min(upperH, w * 0.34) : 0;
+  const x0 = pad + (showQR ? qrSide + pad : 0);
+  const textW = w - x0 - pad;
+
+  let out = `<rect width="${w}" height="${h}" fill="#fff"/>`;
+
+  if (showQR) {
+    const q = QR.svg(itemLink(item), { level: 'M', quiet: 1 });
+    const vb = /viewBox="0 0 (\d+) /.exec(q)[1];
+    out += `<svg x="${pad.toFixed(2)}" y="${(pad + (upperH - qrSide) / 2).toFixed(2)}" width="${qrSide.toFixed(2)}" height="${qrSide.toFixed(2)}" viewBox="0 0 ${vb} ${vb}">` +
+      q.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') + `</svg>`;
+  }
+
+  /* Inventarnummer, darunter Bezeichnung mit einfachem Zeilenumbruch */
+  const invSize = Math.min(h * 0.17, textW / (inv.length * 0.62));
+  let y = pad + invSize * 0.9;
+  out += `<text x="${x0.toFixed(2)}" y="${y.toFixed(2)}" font-family="monospace" font-weight="700" font-size="${invSize.toFixed(2)}" fill="#000">${esc(inv)}</text>`;
+
+  if (showName) {
+    const nSize = h * 0.1, perLine = Math.max(6, Math.floor(textW / (nSize * 0.52)));
+    const lines = [];
+    let line = '';
+    for (const word of String(item.name).split(/\s+/)) {
+      const test = line ? line + ' ' + word : word;
+      if (test.length <= perLine) line = test;
+      else { if (line) lines.push(line); line = word.length > perLine ? word.slice(0, perLine - 1) + '…' : word; }
+      if (lines.length === 2) break;
+    }
+    if (line && lines.length < 2) lines.push(line);
+    for (const l of lines) {
+      y += nSize * 1.18;
+      out += `<text x="${x0.toFixed(2)}" y="${y.toFixed(2)}" font-family="sans-serif" font-size="${nSize.toFixed(2)}" fill="#000">${esc(l)}</text>`;
+    }
+    if (g && y + h * 0.1 < pad + upperH) {
+      y += h * 0.1;
+      out += `<text x="${x0.toFixed(2)}" y="${y.toFixed(2)}" font-family="sans-serif" font-size="${(h * 0.082).toFixed(2)}" fill="#555">${esc(g.name)}</text>`;
+    }
+  }
+
+  if (showBar) {
+    const bar = Code128.svg(inv, { height: 30, quiet: 2 });
+    const vb = /viewBox="0 0 (\d+) (\d+)"/.exec(bar);
+    out += `<svg x="${pad.toFixed(2)}" y="${barY.toFixed(2)}" width="${(w - 2 * pad).toFixed(2)}" height="${barH.toFixed(2)}" viewBox="0 0 ${vb[1]} ${vb[2]}" preserveAspectRatio="none">` +
+      bar.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') + `</svg>`;
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}">${out}</svg>`;
+}
+
+/* Etikettenbogen für eine Auswahl, mit Schnittrahmen */
+function buildLabelSheet(items, opts) {
+  if (!items.length) return toast('Keine Geräte in der Auswahl.');
+  const size = LABEL_SIZES[opts.size || 'mittel'];
+  const copies = Math.max(1, Math.min(20, opts.copies || 1));
+  let cells = '';
+  for (const i of items) {
+    const svg = labelSVG(i, opts);
+    for (let c = 0; c < copies; c++) {
+      cells += `<div class="p-label" style="width:${size.w}mm;height:${size.h}mm">${svg}</div>`;
+    }
+  }
+  const html = `<h1>Etiketten</h1>
+    <div class="doc-meta">${items.length} Gerät(e) · ${copies}× je Gerät · ${size.name} · Stand ${new Date().toLocaleDateString('de-DE')}</div>
+    <div class="p-labels">${cells}</div>`;
+  showPreview(html, 'etiketten-' + todayISO());
+}
+
+/* Codeansicht im Gerätedetail */
+function codesSection(item) {
+  const link = itemLink(item);
+  return `<div class="codes">
+      <div class="codes-qr">${QR.svg(link, { level: 'M', quiet: 2 })}</div>
+      <div class="codes-bar">${Code128.svg(item.invNo || item.id, { height: 26 })}
+        <div class="codes-cap">${esc(item.invNo || '—')}</div>
+      </div>
+    </div>
+    <p class="lede" style="margin-top:8px">${location.protocol.startsWith('http')
+      ? 'Der QR-Code öffnet dieses Gerät direkt in der App, auch über die normale Kamera-App.'
+      : 'Ohne Webserver enthält der QR-Code nur die Inventarnummer. Über GitHub Pages wird daraus ein direkter Link.'}</p>
+    <div class="btnrow" style="margin-top:10px">
+      <button class="btn small" data-label-print="1">Etikett drucken</button>
+      <button class="btn small" data-label-file="1">Etikett als SVG</button>
+    </div>`;
+}
+
+/* ---------------------------------------------------------------- Scannen */
+let scanStop = null;
+function stopScan() { if (scanStop) { const f = scanStop; scanStop = null; f(); } }
+
+function openItemByCode(raw) {
+  if (!raw) return false;
+  let code = String(raw).trim();
+  const hash = code.indexOf('#/i/');
+  if (hash >= 0) code = decodeURIComponent(code.slice(hash + 4));
+  const it = S.items.find(i => (i.invNo || '').toLowerCase() === code.toLowerCase()) ||
+    S.items.find(i => i.id === code);
+  if (!it) { toast('Kein Gerät mit „' + code + '" gefunden.'); return false; }
+  stopScan(); closeSheetAll(); itemDetail(it.id);
+  return true;
+}
+
+async function scanSheet() {
+  stopScan();
+  const supported = 'BarcodeDetector' in window;
+  openSheet('Code scannen', `
+    ${supported ? '<div class="scanbox"><video id="sc-video" playsinline muted></video><div class="scanframe"></div></div>' : ''}
+    <p class="lede" id="sc-msg">${supported
+      ? 'Kamera auf QR-Code oder Barcode halten.'
+      : 'Dieser Browser kann nicht in der App scannen, unter iOS betrifft das alle Browser. Nimm die normale Kamera-App: sie liest den QR-Code und öffnet damit direkt das Gerät. Oder gib die Nummer hier ein.'}</p>
+    <label class="field"><span>Inventarnummer eingeben</span><input type="text" id="sc-manual" placeholder="z. B. KAB-001" autocapitalize="characters"></label>
+    <div class="btnrow" style="margin-top:0"><button class="btn primary" id="sc-go">Gerät öffnen</button></div>`,
+    '', () => { stopScan(); closeSheetAll(); });
+
+  $('#sc-go').onclick = () => openItemByCode($('#sc-manual').value);
+  $('#sc-manual').onkeydown = e => { if (e.key === 'Enter') openItemByCode($('#sc-manual').value); };
+  if (!supported) return;
+
+  const video = $('#sc-video');
+  let stream, raf, stopped = false;
+  scanStop = () => {
+    stopped = true;
+    if (raf) cancelAnimationFrame(raf);
+    if (stream) stream.getTracks().forEach(t => t.stop());
+  };
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    if (stopped) { stream.getTracks().forEach(t => t.stop()); return; }
+    video.srcObject = stream;
+    await video.play();
+  } catch (err) {
+    console.warn(err);
+    const m = $('#sc-msg'); if (m) m.textContent = 'Kein Kamerazugriff. Erlaube die Kamera in den Browsereinstellungen oder gib die Nummer ein.';
+    return;
+  }
+  const det = new window.BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39'] });
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const found = await det.detect(video);
+      if (found.length && openItemByCode(found[0].rawValue)) return;
+    } catch (err) { /* einzelne Frames dürfen fehlschlagen */ }
+    raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+/* Direktaufruf über #/i/<Inventarnummer> */
+function handleHash() {
+  const m = /^#\/i\/(.+)$/.exec(location.hash);
+  if (!m) return;
+  const code = decodeURIComponent(m[1]);
+  const it = S.items.find(i => (i.invNo || '').toLowerCase() === code.toLowerCase()) || S.items.find(i => i.id === code);
+  history.replaceState(null, '', location.pathname + location.search);
+  if (it) itemDetail(it.id); else toast('Kein Gerät mit „' + code + '" gefunden.');
+}
+
 /* ---------------------------------------------------------------- Ansicht: Inventar */
 function filteredItems() {
   const q = S.q.trim().toLowerCase();
@@ -269,6 +456,7 @@ function renderGroups() {
 /* ---------------------------------------------------------------- Sheet-Rahmen */
 let sheetBack = null;
 function openSheet(title, html, actionHTML = '', back = null) {
+  if (typeof stopScan === 'function') stopScan();
   sheetBack = back;
   $('#sheet-title').textContent = title;
   $('#sheet-action').innerHTML = actionHTML;
@@ -449,6 +637,9 @@ async function itemDetail(id) {
     <div class="section-title">Fotos</div>
     <div class="gallery" id="d-gallery"></div>
 
+    <div class="section-title">Etikett und Codes</div>
+    ${codesSection(i)}
+
     <div class="section-title">Historie &amp; Kommentare</div>
     <div class="btnrow" style="margin-top:0">
       <button class="btn small" data-add-entry="notiz">Notiz</button>
@@ -492,6 +683,11 @@ async function itemDetail(id) {
   }
 
   $('#sheet-body').onclick = async ev => {
+    if (ev.target.closest('[data-label-print]')) return buildLabelSheet([i], { size: 'mittel', copies: 1 });
+    if (ev.target.closest('[data-label-file]')) {
+      download(labelSVG(i, { size: 'mittel' }), 'etikett-' + (i.invNo || i.id) + '.svg', 'image/svg+xml');
+      return toast('Etikett gespeichert');
+    }
     const add = ev.target.closest('[data-add-entry]');
     if (add) return entryForm(id, add.dataset.addEntry);
     const res = ev.target.closest('[data-resolve]');
@@ -789,6 +985,22 @@ function renderExport() {
       <label class="field"><span>Zusatz</span><input type="text" id="x-sub" placeholder="z. B. Stand Probenraum, Übergabe an …"></label>
     </fieldset>
 
+    <fieldset>
+      <legend>Etiketten</legend>
+      <div class="grid2">
+        <label class="field"><span>Größe</span><select id="x-lsize">
+          <option value="klein">40 × 25 mm</option>
+          <option value="mittel" selected>60 × 35 mm</option>
+          <option value="gross">90 × 50 mm</option>
+        </select></label>
+        <label class="field"><span>Stück je Gerät</span><input type="number" id="x-lcopies" min="1" max="20" value="1"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="x-lqr" checked><span>QR-Code<small>öffnet das Gerät in der App</small></span></label>
+      <label class="check"><input type="checkbox" id="x-lbar" checked><span>Barcode (Code 128) mit Inventarnummer</span></label>
+      <label class="check"><input type="checkbox" id="x-lname" checked><span>Bezeichnung und Gruppe</span></label>
+      <div class="btnrow"><button class="btn" id="x-labels">Etiketten erzeugen</button></div>
+    </fieldset>
+
     <div class="btnrow">
       <button class="btn primary" id="x-run">Vorschau &amp; Drucken</button>
       <button class="btn" id="x-csv">CSV</button>
@@ -804,6 +1016,10 @@ function renderExport() {
   $('#x-pick').onclick = () => pickItemsDialog();
   $('#x-run').onclick = () => buildInventoryDoc(readExportOpts());
   $('#x-csv').onclick = () => exportCSV(readExportOpts());
+  $('#x-labels').onclick = () => buildLabelSheet(selectedItems(readExportOpts()), {
+    size: $('#x-lsize').value, copies: Number($('#x-lcopies').value) || 1,
+    qr: $('#x-lqr').checked, bar: $('#x-lbar').checked, name: $('#x-lname').checked
+  });
   updatePickInfo();
 }
 
@@ -992,7 +1208,10 @@ h2{font-size:14px;margin:20px 0 6px;border-bottom:1px solid #bbb;padding-bottom:
 table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #bbb;padding:4px 6px;text-align:left;vertical-align:top}th{background:#eee}
 .sign{margin-top:26px;display:flex;gap:40px}.sign div{flex:1;border-top:1px solid #111;padding-top:4px;font-size:11px;color:#444}
 .note{background:#f4f4f4;border-left:3px solid #f5c542;padding:7px 9px;margin:10px 0;font-size:12px}
-@media print{@page{margin:14mm}.p-item{break-inside:avoid}}</style></head><body>${inner}</body></html>`;
+.p-labels{display:flex;flex-wrap:wrap;gap:4mm}
+.p-label{border:0.2mm dashed #aaa;padding:0;overflow:hidden;break-inside:avoid}
+.p-label svg{display:block;width:100%;height:100%}
+@media print{@page{margin:10mm}.p-item{break-inside:avoid}.p-label{break-inside:avoid}}</style></head><body>${inner}</body></html>`;
     download(doc, filename + '.html', 'text/html;charset=utf-8');
     toast('Datei gespeichert');
   };
@@ -1122,6 +1341,8 @@ function show(view) {
 function refreshAll() { renderStats(); renderGroupFilter(); renderItems(); renderGroups(); renderLoans(); }
 
 $('#tabbar').onclick = e => { const b = e.target.closest('.tab'); if (b) show(b.dataset.view); };
+$('#btn-scan').onclick = scanSheet;
+window.addEventListener('hashchange', handleHash);
 $('#btn-search-toggle').onclick = () => {
   const b = $('#searchbar'); b.hidden = !b.hidden;
   if (!b.hidden) $('#search').focus(); else { $('#search').value = ''; S.q = ''; renderItems(); }
@@ -1175,5 +1396,6 @@ if ('serviceWorker' in navigator) window.addEventListener('load', () => navigato
   await loadAll();
   refreshAll();
   show('inventar');
+  handleHash();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
 })();

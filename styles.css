@@ -287,3 +287,21 @@ legend{font-size:12.5px;color:var(--muted);padding:0 6px}
   background:#2b2519;padding:10px 12px;margin-bottom:16px;font-size:13px;color:#e9d9b8;
 }
 .notice b{display:block;color:var(--warn);margin-bottom:2px}
+
+/* ---------- Codes, Etiketten, Scanner ---------- */
+.codes{display:flex;gap:14px;align-items:center;background:var(--surface);
+  border:1px solid var(--line-soft);border-radius:var(--r);padding:12px}
+.codes-qr{flex:none;width:104px}
+.codes-qr svg{display:block;width:100%;height:auto;border-radius:2px}
+.codes-bar{flex:1;min-width:0}
+.codes-bar svg{display:block;width:100%;height:44px;border-radius:2px}
+.codes-cap{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:.08em}
+
+.scanbox{position:relative;border-radius:var(--r);overflow:hidden;background:#000;margin-bottom:12px}
+.scanbox video{width:100%;max-height:52vh;object-fit:cover;display:block}
+.scanframe{position:absolute;inset:18% 14%;border:2px solid var(--tag);border-radius:6px;pointer-events:none}
+
+.print-area .p-labels{display:flex;flex-wrap:wrap;gap:4mm}
+.print-area .p-label{border:0.2mm dashed #aaa;overflow:hidden;break-inside:avoid}
+.print-area .p-label svg{display:block;width:100%;height:100%}
+@media print{.print-area .p-label{break-inside:avoid}}
