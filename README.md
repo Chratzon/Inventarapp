@@ -18,19 +18,25 @@ Ausgabe in einstellbarem Detailgrad. Alle Daten bleiben lokal im Browser, die Ap
 
 Die Daten hängen an der Adresse. Immer dieselbe URL nutzen und die App vom Startbildschirm öffnen.
 
-## Codes und Etiketten
+## Codes drucken und exportieren
 
-Jedes Gerät bekommt automatisch drei Dinge, sichtbar in der Detailansicht unter „Etikett und Codes":
+In der Detailansicht eines Geräts führt „Drucken und exportieren" zu einem Dialog mit Vorschau.
+Wählbar ist, was ausgegeben wird:
 
-- **QR-Code** mit dem Link `…/#/i/<Inventarnummer>`. Gescannt öffnet er die App direkt bei diesem
-  Gerät, auch über die normale Kamera-App des Handys.
-- **Barcode** in Code 128 mit der Inventarnummer, lesbar von jedem Handscanner.
-- **Druckdatei**: „Etikett drucken" erzeugt einen Bogen zum Ausdrucken, „Etikett als SVG" speichert
-  eine verlustfreie Vektordatei für Etikettendrucker oder Druckerei.
+| Inhalt | Größen | typischer Einsatz |
+|---|---|---|
+| Etikett komplett | 40×25, 60×35, 90×50 mm | QR, Barcode, Nummer, Bezeichnung auf einem Aufkleber |
+| Nur QR-Code | 15, 25, 40 mm | kleine Marke auf Steckern, Cases, Fernbedienungen |
+| Nur Barcode | 40×12, 60×18, 90×25 mm | Scannerkasse, Lagerlisten |
+| Nur Inventarnummer | 40×10, 60×14, 90×20 mm | Beschriftung mit Klartext, ohne Code |
 
-Unter Ausgabe → Etiketten entstehen Bögen für viele Geräte auf einmal: Größe 40 × 25, 60 × 35 oder
-90 × 50 mm, Stückzahl je Gerät und Inhalt wählbar. Gedruckt wird maßstabsgetreu in Millimeter,
-die gestrichelten Rahmen sind die Schnittkanten. Im Druckdialog die Skalierung auf 100 % stellen.
+Drei Ausgabewege: **Drucken** öffnet einen Bogen in gewünschter Stückzahl, **SVG** speichert eine
+verlustfreie Vektordatei für Etikettendrucker, **PNG** liefert 300 dpi zum Einfügen in Dokumente.
+Über Ausgabe → Etiketten und Codes gibt es dasselbe für viele Geräte auf einmal.
+Beim Drucken die Skalierung auf 100 % stellen, sonst stimmen die Millimeter nicht.
+
+Der QR-Code enthält den Link `…/#/i/<Inventarnummer>` und öffnet die App direkt beim Gerät,
+auch über die normale Kamera-App. Der Barcode ist Code 128 mit der reinen Inventarnummer.
 
 ## Scannen
 
@@ -46,9 +52,9 @@ Gruppennamens verwendet. Die vorgeschlagene Nummer lässt sich beim Anlegen übe
 
 ## Wenn Änderungen nicht ankommen
 
-Die App liefert Programmdateien zuerst aus dem Netz und fällt nur offline auf den Cache zurück.
+Programmdateien holt die App zuerst aus dem Netz und fällt nur offline auf den Cache zurück.
 Trotzdem gilt: bei jeder Änderung an `app.js`, `codes.js` oder `styles.css` die Cache-Version in
-`sw.js` hochzählen (`roadcase-v3` → `roadcase-v4`). Unter Daten zeigt die App ihren Stand an;
+`sw.js` hochzählen (`roadcase-v4` → `roadcase-v5`). Unter Daten zeigt die App ihren Stand an;
 steht dort ein alter Wert, läuft noch die vorherige Fassung. Dann die Seite einmal online öffnen,
 schließen und neu starten – oder das Symbol vom Startbildschirm löschen und neu hinzufügen.
 

@@ -1,6 +1,6 @@
 /* Roadcase Service Worker – App-Shell offline, Daten liegen in IndexedDB.
    Cachename bei jeder Änderung hochzählen. */
-const CACHE = 'roadcase-v3';
+const CACHE = 'roadcase-v4';
 const SHELL = [
   './', './index.html', './styles.css', './codes.js', './app.js',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'

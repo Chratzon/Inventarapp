@@ -1,7 +1,7 @@
 /* Roadcase – Bandinventar. Alle Daten bleiben im Browser (IndexedDB). */
 'use strict';
 
-const APP_VERSION = 'v3 (10.09.2026)';
+const APP_VERSION = 'v4 (10.09.2026)';
 
 /* ---------------------------------------------------------------- Helfer */
 const $ = (s, r = document) => r.querySelector(s);
@@ -202,6 +202,16 @@ const LABEL_SIZES = {
   gross: { w: 90, h: 50, name: '90 × 50 mm' }
 };
 
+/* Einzelausgaben: QR, Barcode oder reine Inventarnummer */
+const CODE_KINDS = { label: 'Etikett komplett', qr: 'Nur QR-Code', bar: 'Nur Barcode', inv: 'Nur Inventarnummer' };
+const CODE_SIZES = {
+  label: LABEL_SIZES,
+  qr: { klein: { w: 15, h: 15, name: '15 mm' }, mittel: { w: 25, h: 25, name: '25 mm' }, gross: { w: 40, h: 40, name: '40 mm' } },
+  bar: { klein: { w: 40, h: 12, name: '40 × 12 mm' }, mittel: { w: 60, h: 18, name: '60 × 18 mm' }, gross: { w: 90, h: 25, name: '90 × 25 mm' } },
+  inv: { klein: { w: 40, h: 10, name: '40 × 10 mm' }, mittel: { w: 60, h: 14, name: '60 × 14 mm' }, gross: { w: 90, h: 20, name: '90 × 20 mm' } }
+};
+const sizeOf = (kind, size) => CODE_SIZES[kind][size] || CODE_SIZES[kind].mittel;
+
 /* Inhalt des QR-Codes: Link auf das Gerät, damit jede Kamera-App direkt die Seite öffnet.
    Ohne Webserver (Datei geöffnet) bleibt nur die Inventarnummer. */
 function itemLink(item) {
@@ -292,6 +302,139 @@ function buildLabelSheet(items, opts) {
   showPreview(html, 'etiketten-' + todayISO());
 }
 
+
+/* Einzelner Code als eigenständige, maßhaltige SVG-Datei */
+function codeSVG(item, opts) {
+  opts = opts || {};
+  const kind = opts.kind || 'label';
+  if (kind === 'label') return labelSVG(item, opts);
+  if (typeof QR === 'undefined') return '';
+  const { w, h } = sizeOf(kind, opts.size || 'mittel');
+  const inv = item.invNo || item.id;
+  const caption = opts.caption !== false;
+  const pad = Math.max(0.8, Math.min(w, h) * 0.06);
+  const capH = caption ? Math.max(2.6, h * 0.16) : 0;
+  let out = `<rect width="${w}" height="${h}" fill="#fff"/>`;
+
+  if (kind === 'qr') {
+    const side = Math.min(w - 2 * pad, h - 2 * pad - capH);
+    const q = QR.svg(itemLink(item), { level: 'M', quiet: 1 });
+    const vb = /viewBox="0 0 (\d+) /.exec(q)[1];
+    out += `<svg x="${((w - side) / 2).toFixed(2)}" y="${pad.toFixed(2)}" width="${side.toFixed(2)}" height="${side.toFixed(2)}" viewBox="0 0 ${vb} ${vb}">` +
+      q.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') + `</svg>`;
+    if (caption) out += `<text x="${(w / 2).toFixed(2)}" y="${(pad + side + capH * 0.78).toFixed(2)}" text-anchor="middle" font-family="monospace" font-weight="700" font-size="${(capH * 0.8).toFixed(2)}" fill="#000">${esc(inv)}</text>`;
+  }
+
+  if (kind === 'bar') {
+    const bh = h - 2 * pad - capH;
+    const bar = Code128.svg(inv, { height: 30, quiet: 2 });
+    const vb = /viewBox="0 0 (\d+) (\d+)"/.exec(bar);
+    out += `<svg x="${pad.toFixed(2)}" y="${pad.toFixed(2)}" width="${(w - 2 * pad).toFixed(2)}" height="${bh.toFixed(2)}" viewBox="0 0 ${vb[1]} ${vb[2]}" preserveAspectRatio="none">` +
+      bar.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') + `</svg>`;
+    if (caption) out += `<text x="${(w / 2).toFixed(2)}" y="${(pad + bh + capH * 0.8).toFixed(2)}" text-anchor="middle" font-family="monospace" font-size="${(capH * 0.78).toFixed(2)}" letter-spacing="${(capH * 0.08).toFixed(2)}" fill="#000">${esc(inv)}</text>`;
+  }
+
+  if (kind === 'inv') {
+    const g = groupOf(item.groupId);
+    const sub = caption && g ? g.name : '';
+    const subH = sub ? h * 0.22 : 0;
+    const fit = Math.min((h - 2 * pad - subH) * 0.95, (w - 2 * pad) / (inv.length * 0.62));
+    out += `<text x="${(w / 2).toFixed(2)}" y="${(pad + fit * 0.82).toFixed(2)}" text-anchor="middle" font-family="monospace" font-weight="700" font-size="${fit.toFixed(2)}" fill="#000">${esc(inv)}</text>`;
+    if (sub) out += `<text x="${(w / 2).toFixed(2)}" y="${(h - pad).toFixed(2)}" text-anchor="middle" font-family="sans-serif" font-size="${(subH * 0.7).toFixed(2)}" fill="#555">${esc(sub)}</text>`;
+  }
+
+  const label = { qr: 'QR-Code', bar: 'Barcode', inv: 'Inventarnummer' }[kind] + ' ' + inv;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}">${out}</svg>`;
+}
+
+/* Bogen aus beliebig vielen Einzelcodes */
+function buildCodeSheet(items, opts) {
+  if (!items.length) return toast('Keine Geräte in der Auswahl.');
+  const kind = opts.kind || 'label';
+  const size = sizeOf(kind, opts.size);
+  const copies = Math.max(1, Math.min(40, opts.copies || 1));
+  let cells = '';
+  for (const i of items) {
+    const svg = codeSVG(i, opts);
+    for (let c = 0; c < copies; c++) cells += `<div class="p-label" style="width:${size.w}mm;height:${size.h}mm">${svg}</div>`;
+  }
+  showPreview(`<h1>${esc(CODE_KINDS[kind])}</h1>
+    <div class="doc-meta">${items.length} Gerät(e) · ${copies}× je Gerät · ${size.name} · Stand ${new Date().toLocaleDateString('de-DE')}</div>
+    <div class="p-labels">${cells}</div>`, 'codes-' + kind + '-' + todayISO());
+}
+
+/* SVG in PNG umrechnen, Standard 300 dpi */
+async function downloadPNG(svg, wmm, hmm, filename, dpi) {
+  dpi = dpi || 300;
+  const f = dpi / 25.4, wpx = Math.round(wmm * f), hpx = Math.round(hmm * f);
+  const sized = svg.replace(/width="[^"]*" height="[^"]*"/, `width="${wpx}" height="${hpx}"`);
+  const url = URL.createObjectURL(new Blob([sized], { type: 'image/svg+xml' }));
+  try {
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+    const c = document.createElement('canvas');
+    c.width = wpx; c.height = hpx;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, wpx, hpx);
+    ctx.drawImage(img, 0, 0, wpx, hpx);
+    await new Promise(res => c.toBlob(b => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(b); a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+      res();
+    }, 'image/png'));
+    toast('PNG gespeichert');
+  } catch (err) {
+    console.error(err);
+    toast('PNG ging nicht, nimm SVG.');
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* Ausgabedialog für ein einzelnes Gerät */
+function codeDialog(item) {
+  const state = { kind: 'label', size: 'mittel', copies: 1, caption: true };
+  openSheet('Drucken und exportieren', `
+    <p class="lede">${esc(item.invNo || '')} · ${esc(item.name)}</p>
+    <label class="field"><span>Inhalt</span><select id="cd-kind">
+      ${Object.entries(CODE_KINDS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
+    </select></label>
+    <div class="grid2">
+      <label class="field"><span>Größe</span><select id="cd-size"></select></label>
+      <label class="field"><span>Stück für den Druck</span><input type="number" id="cd-copies" min="1" max="40" value="1"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="cd-caption" checked><span>Inventarnummer als Text mit ausgeben</span></label>
+    <div class="section-title">Vorschau</div>
+    <div class="codepreview" id="cd-preview"></div>
+    <div class="btnrow">
+      <button class="btn primary" id="cd-print">Drucken</button>
+      <button class="btn" id="cd-svg">SVG</button>
+      <button class="btn" id="cd-png">PNG</button>
+    </div>
+    <p class="lede" style="margin-top:12px">SVG bleibt verlustfrei und ist für Etikettendrucker das richtige Format. PNG entsteht mit 300 dpi, passend zum Einfügen in Dokumente. Beim Drucken die Skalierung auf 100 % stellen.</p>`,
+    '', () => { closeSheetAll(); itemDetail(item.id); });
+
+  const sizes = () => {
+    $('#cd-size').innerHTML = Object.entries(CODE_SIZES[state.kind])
+      .map(([k, v]) => `<option value="${k}" ${k === state.size ? 'selected' : ''}>${v.name}</option>`).join('');
+  };
+  const paint = () => {
+    const svg = codeSVG(item, state);
+    const s = sizeOf(state.kind, state.size);
+    $('#cd-preview').innerHTML = `<div style="aspect-ratio:${s.w}/${s.h};max-width:${Math.min(100, s.w * 3)}%">${svg}</div>`;
+  };
+  $('#cd-kind').onchange = e => { state.kind = e.target.value; if (!CODE_SIZES[state.kind][state.size]) state.size = 'mittel'; sizes(); paint(); };
+  $('#cd-size').onchange = e => { state.size = e.target.value; paint(); };
+  $('#cd-caption').onchange = e => { state.caption = e.target.checked; paint(); };
+  $('#cd-copies').onchange = e => { state.copies = Number(e.target.value) || 1; };
+  sizes(); paint();
+
+  const fname = ext => `${state.kind}-${item.invNo || item.id}.${ext}`;
+  $('#cd-print').onclick = () => buildCodeSheet([item], { ...state, copies: Number($('#cd-copies').value) || 1 });
+  $('#cd-svg').onclick = () => { download(codeSVG(item, state), fname('svg'), 'image/svg+xml'); toast('SVG gespeichert'); };
+  $('#cd-png').onclick = () => { const s = sizeOf(state.kind, state.size); downloadPNG(codeSVG(item, state), s.w, s.h, fname('png')); };
+}
+
 /* Codeansicht im Gerätedetail */
 function codesSection(item) {
   if (typeof QR === 'undefined' || typeof Code128 === 'undefined') {
@@ -309,8 +452,7 @@ function codesSection(item) {
       ? 'Der QR-Code öffnet dieses Gerät direkt in der App, auch über die normale Kamera-App.'
       : 'Ohne Webserver enthält der QR-Code nur die Inventarnummer. Über GitHub Pages wird daraus ein direkter Link.'}</p>
     <div class="btnrow" style="margin-top:10px">
-      <button class="btn small" data-label-print="1">Etikett drucken</button>
-      <button class="btn small" data-label-file="1">Etikett als SVG</button>
+      <button class="btn small" data-codes="1">Drucken und exportieren</button>
     </div>`;
 }
 
@@ -689,11 +831,7 @@ async function itemDetail(id) {
   }
 
   $('#sheet-body').onclick = async ev => {
-    if (ev.target.closest('[data-label-print]')) return buildLabelSheet([i], { size: 'mittel', copies: 1 });
-    if (ev.target.closest('[data-label-file]')) {
-      download(labelSVG(i, { size: 'mittel' }), 'etikett-' + (i.invNo || i.id) + '.svg', 'image/svg+xml');
-      return toast('Etikett gespeichert');
-    }
+    if (ev.target.closest('[data-codes]')) return codeDialog(i);
     const add = ev.target.closest('[data-add-entry]');
     if (add) return entryForm(id, add.dataset.addEntry);
     const res = ev.target.closest('[data-resolve]');
@@ -992,19 +1130,21 @@ function renderExport() {
     </fieldset>
 
     <fieldset>
-      <legend>Etiketten</legend>
+      <legend>Etiketten und Codes</legend>
+      <label class="field"><span>Inhalt</span><select id="x-lkind">
+        ${Object.entries(CODE_KINDS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
+      </select></label>
       <div class="grid2">
-        <label class="field"><span>Größe</span><select id="x-lsize">
-          <option value="klein">40 × 25 mm</option>
-          <option value="mittel" selected>60 × 35 mm</option>
-          <option value="gross">90 × 50 mm</option>
-        </select></label>
+        <label class="field"><span>Größe</span><select id="x-lsize"></select></label>
         <label class="field"><span>Stück je Gerät</span><input type="number" id="x-lcopies" min="1" max="20" value="1"></label>
       </div>
-      <label class="check"><input type="checkbox" id="x-lqr" checked><span>QR-Code<small>öffnet das Gerät in der App</small></span></label>
-      <label class="check"><input type="checkbox" id="x-lbar" checked><span>Barcode (Code 128) mit Inventarnummer</span></label>
-      <label class="check"><input type="checkbox" id="x-lname" checked><span>Bezeichnung und Gruppe</span></label>
-      <div class="btnrow"><button class="btn" id="x-labels">Etiketten erzeugen</button></div>
+      <div id="x-lopts">
+        <label class="check"><input type="checkbox" id="x-lqr" checked><span>QR-Code<small>öffnet das Gerät in der App</small></span></label>
+        <label class="check"><input type="checkbox" id="x-lbar" checked><span>Barcode (Code 128) mit Inventarnummer</span></label>
+        <label class="check"><input type="checkbox" id="x-lname" checked><span>Bezeichnung und Gruppe</span></label>
+      </div>
+      <label class="check" id="x-lcapwrap" hidden><input type="checkbox" id="x-lcaption" checked><span>Inventarnummer als Text mit ausgeben</span></label>
+      <div class="btnrow"><button class="btn" id="x-labels">Bogen erzeugen</button></div>
     </fieldset>
 
     <div class="btnrow">
@@ -1022,8 +1162,17 @@ function renderExport() {
   $('#x-pick').onclick = () => pickItemsDialog();
   $('#x-run').onclick = () => buildInventoryDoc(readExportOpts());
   $('#x-csv').onclick = () => exportCSV(readExportOpts());
-  $('#x-labels').onclick = () => buildLabelSheet(selectedItems(readExportOpts()), {
-    size: $('#x-lsize').value, copies: Number($('#x-lcopies').value) || 1,
+  const lkind = () => {
+    const k = $('#x-lkind').value;
+    $('#x-lsize').innerHTML = Object.entries(CODE_SIZES[k]).map(([key, v]) =>
+      `<option value="${key}" ${key === 'mittel' ? 'selected' : ''}>${v.name}</option>`).join('');
+    $('#x-lopts').hidden = k !== 'label';
+    $('#x-lcapwrap').hidden = k === 'label';
+  };
+  $('#x-lkind').onchange = lkind; lkind();
+  $('#x-labels').onclick = () => buildCodeSheet(selectedItems(readExportOpts()), {
+    kind: $('#x-lkind').value, size: $('#x-lsize').value, copies: Number($('#x-lcopies').value) || 1,
+    caption: $('#x-lcaption').checked,
     qr: $('#x-lqr').checked, bar: $('#x-lbar').checked, name: $('#x-lname').checked
   });
   updatePickInfo();
